@@ -7,7 +7,8 @@
 #  * Where to write the results of the generation
 
 
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+# from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoTokenizer, AutoModelWithLMHead
 from sys import argv
 import torch
 
@@ -18,20 +19,52 @@ AT = argv[2]
 TEST_FILE = argv[3]
 ACTION = argv[4]
 
-tokenizer = GPT2Tokenizer.from_pretrained(str(MODEL))
-model = GPT2LMHeadModel.from_pretrained(str(MODEL), pad_token_id=tokenizer.eos_token_id).to(DEVICE)
+# tokenizer = AutoTokenizer.from_pretrained("allenai/scibert_scivocab_uncased")
+# model = AutoModelWithLMHead.from_pretrained("allenai/scibert_scivocab_uncased", pad_token_id=tokenizer.eos_token_id).to(DEVICE)
+# # Set the PAD token for generation
+# model.config.pad_token_id = tokenizer.eos_token_id
+
+from transformers import AutoTokenizer, AutoModelForMaskedLM
+
+tokenizer = AutoTokenizer.from_pretrained("allenai/scibert_scivocab_uncased")
+if tokenizer.pad_token is None:
+    tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+model = AutoModelForMaskedLM.from_pretrained(
+    "allenai/scibert_scivocab_uncased", pad_token_id=tokenizer.eos_token_id
+).to(DEVICE)
+
+# Set the PAD token for generation
+# model.config.pad_token_id = tokenizer.eos_token_id
+
+
+# tokenizer = GPT2Tokenizer.from_pretrained(str(MODEL))
+# model = GPT2LMHeadModel.from_pretrained(str(MODEL), pad_token_id=tokenizer.eos_token_id).to(DEVICE)
 
 
 def generate(text, n=5, length_multiplier=3, add_score=False):
-    input_ids = tokenizer.encode(text, return_tensors='pt').to(DEVICE)
+    input_ids = tokenizer.encode(text, return_tensors="pt").to(DEVICE)
     length = len(input_ids[0])
-    beam_outputs = model.generate(input_ids, max_length=length * length_multiplier, top_k=40, temperature=1.0,
-                                  do_sample=False,
-                                  top_p=0.9, repetition_penalty=1.0, num_return_sequences=n, num_beams=n,
-                                  early_stopping=True, return_dict_in_generate=True,  output_scores=True)
-    print("Output:\n" + 100 * '-')
+    # beam_outputs = model.generate(input_ids, max_length=length * length_multiplier, top_k=40, temperature=1.0,
+    #                               do_sample=False,
+    #                               top_p=0.9, repetition_penalty=1.0, num_return_sequences=n, num_beams=n,
+    #                               early_stopping=True, return_dict_in_generate=True,  output_scores=True)
+    beam_outputs = model.generate(
+        input_ids,
+        max_length=length * length_multiplier,
+        num_beams=n,
+        early_stopping=True,
+        num_return_sequences=n,
+        output_scores=True,
+        return_dict_in_generate=True,
+    )
+
+    print("Output:\n" + 100 * "-")
     res = []
-    for i, beam_output, score in zip(range(len(beam_outputs.sequences)), beam_outputs.sequences, beam_outputs.sequences_scores):
+    for i, beam_output, score in zip(
+        range(len(beam_outputs.sequences)),
+        beam_outputs.sequences,
+        beam_outputs.sequences_scores,
+    ):
         generation = tokenizer.decode(beam_output, skip_special_tokens=True)
         if add_score:
             generation += "\t" + str(score.item())
@@ -49,7 +82,7 @@ def evaluate_precision(at=1):
     neg = 0
     with open(TEST_FILE) as f:
         for line in f:
-            line = line.strip()[:-len("<|endoftext|>")]
+            line = line.strip()[: -len("<|endoftext|>")]
             print(line)
             source, target = line.split("[SEP]")
             source += "[SEP]"
@@ -110,7 +143,7 @@ ALL_RELATIONS = [
     "motivated by goal",
     "part of",
     "receives action",
-    "used for"
+    "used for",
 ]
 
 
@@ -120,7 +153,12 @@ def generate_from_subjects_with_predicates(at=1):
         for i, line in enumerate(f):
             subject = line.strip()
             for predicate in ALL_RELATIONS:
-                preds = generate(subject + "\t" + predicate + "\t", at, length_multiplier=3, add_score=True)
+                preds = generate(
+                    subject + "\t" + predicate + "\t",
+                    at,
+                    length_multiplier=3,
+                    add_score=True,
+                )
                 res += preds
     with open(argv[5], "w") as f:
         f.write("\n".join(res))

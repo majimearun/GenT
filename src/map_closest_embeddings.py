@@ -42,4 +42,4 @@ distances, indices = nbrs.kneighbors(open_embeddings)
 print("Save results...")
 with open(OUTPUT_FILENAME, "w") as f:
     for open_sentence, indice, distance in zip(open_sentences, indices, distances):
-        f.write(open_sentence + "\t" + close_sentences[indice[0]] + "\t" + str(distance[0]) + "\n")
+        f.write(open_sentence + "[SEP]" + close_sentences[indice[0]] + "\n")
