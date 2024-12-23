@@ -26,13 +26,13 @@ ACTION = argv[4]
 
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 
-tokenizer = AutoTokenizer.from_pretrained("allenai/scibert_scivocab_uncased")
+tokenizer = AutoTokenizer.from_pretrained(str(MODEL))
 if tokenizer.pad_token is None:
     tokenizer.add_special_tokens({"pad_token": "[PAD]"})
 model = AutoModelForMaskedLM.from_pretrained(
-    "allenai/scibert_scivocab_uncased", pad_token_id=tokenizer.eos_token_id
+    str(MODEL), pad_token_id=tokenizer.eos_token_id
 ).to(DEVICE)
-
+print(model)
 # Set the PAD token for generation
 # model.config.pad_token_id = tokenizer.eos_token_id
 
@@ -176,7 +176,8 @@ def generate_from_subjects(at=1):
 
 
 if ACTION == "evaluate":
-    evaluate_precision(at=int(AT))
+    # evaluate_precision(at=int(AT))
+    pass
 elif ACTION == "generate":
     generate_examples(at=int(AT))
 elif ACTION == "subject":
